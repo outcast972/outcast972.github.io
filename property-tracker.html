@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nathan's Property Tracker</title>
+<style>
+  :root {
+    --green:  #d4edda;
+    --green-border: #28a745;
+    --yellow: #fff3cd;
+    --yellow-border: #ffc107;
+    --orange: #ffe0cc;
+    --orange-border: #e8612c;
+    --blue-dark: #1F4E79;
+    --blue-mid:  #2e75b6;
+    --blue-light: #dce8f5;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --card-radius: 12px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.10);
+    --shadow-hover: 0 6px 20px rgba(0,0,0,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f0f4f8;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────── */
+  header {
+    background: var(--blue-dark);
+    color: white;
+    padding: 24px 32px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px; }
+  header p  { font-size: 0.82rem; opacity: 0.75; margin-top: 2px; }
+
+  .header-inner { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; opacity: 0.9; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .legend-dot.viewing  { background: var(--orange-border); }
+  .legend-dot.budget   { background: var(--green-border); }
+  .legend-dot.over     { background: var(--yellow-border); }
+
+  /* ── Filter bar ──────────────────────────────────────────────── */
+  .filter-bar {
+    background: white;
+    padding: 14px 32px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #e5e7eb;
+    position: sticky;
+    top: 83px;
+    z-index: 99;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filter-label { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+
+  .filter-btn {
+    border: 1.5px solid #d1d5db;
+    background: white;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .filter-btn:hover { border-color: var(--blue-mid); color: var(--blue-mid); }
+  .filter-btn.active { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+
+  .count-badge {
+    background: var(--blue-light);
+    color: var(--blue-dark);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: auto;
+  }
+
+  /* ── Search box ──────────────────────────────────────────────── */
+  .search-wrap { position: relative; }
+  .search-wrap input {
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    padding: 5px 14px 5px 32px;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 180px;
+    color: var(--text);
+  }
+  .search-wrap input:focus { border-color: var(--blue-mid); }
+  .search-wrap::before {
+    content: '🔍';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    pointer-events: none;
+  }
+
+  /* ── Grid ────────────────────────────────────────────────────── */
+  .grid-wrap { padding: 24px 32px 48px; }
+
+  .area-section { margin-bottom: 32px; }
+  .area-heading {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--blue-dark);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--blue-light);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .area-heading .area-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--blue-light);
+    color: var(--blue-mid);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── Card ────────────────────────────────────────────────────── */
+  .card {
+    background: white;
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    border: 2.5px solid transparent;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+
+  .card.viewing { border-color: var(--orange-border); background: #fffaf7; }
+  .card.in-budget { border-color: var(--green-border); }
+  .card.over-budget { border-color: var(--yellow-border); }
+
+  /* ── Card image ──────────────────────────────────────────────── */
+  .card-img-wrap {
+    position: relative;
+    width: 100%;
+    height: 185px;
+    background: #e9eef4;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .card-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s;
+  }
+  .card:hover .card-img-wrap img { transform: scale(1.04); }
+  .card-img-wrap .no-img {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 0.8rem;
+    gap: 8px;
+  }
+  .card-img-wrap .no-img .icon { font-size: 2rem; }
+
+  /* ── Status ribbon ───────────────────────────────────────────── */
+  .status-ribbon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .ribbon-viewing  { background: var(--orange-border); color: white; }
+  .ribbon-budget   { background: #198754; color: white; }
+  .ribbon-over     { background: #856404; color: #fff8e1; }
+
+  /* ── Card body ───────────────────────────────────────────────── */
+  .card-body {
+    padding: 14px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .card-address {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .card-type {
+    display: inline-block;
+    background: var(--blue-light);
+    color: var(--blue-dark);
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+    width: fit-content;
+  }
+
+  .card-rent {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--blue-dark);
+    letter-spacing: -0.5px;
+    margin-top: 2px;
+  }
+  .card-rent span { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+
+  .card-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .meta-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .meta-chip .icon { font-size: 0.85rem; }
+
+  .card-transport {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    padding: 7px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 2px;
+  }
+  .transport-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.74rem;
+    color: #374151;
+  }
+  .transport-row .t-icon { font-size: 0.85rem; flex-shrink: 0; margin-top: 1px; }
+  .transport-row .t-label { color: var(--muted); font-weight: 600; min-width: 28px; }
+
+  .card-notes {
+    font-size: 0.73rem;
+    color: var(--muted);
+    line-height: 1.4;
+    border-left: 3px solid var(--blue-light);
+    padding-left: 8px;
+    margin-top: 2px;
+  }
+  .card-notes.viewing-note {
+    border-left-color: var(--orange-border);
+    color: #92400e;
+    background: #fff7ed;
+    padding: 5px 8px;
+    border-radius: 0 5px 5px 0;
+  }
+
+  .card-footer {
+    padding: 0 16px 14px;
+    margin-top: auto;
+  }
+  .card-link {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: var(--blue-dark);
+    color: white;
+    text-decoration: none;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: background 0.15s;
+  }
+  .card-link:hover { background: var(--blue-mid); }
+  .card-link.viewing-link { background: var(--orange-border); }
+  .card-link.viewing-link:hover { background: #c44e1e; }
+
+  /* ── Empty state ─────────────────────────────────────────────── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    grid-column: 1/-1;
+  }
+  .empty-state .e-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+  /* ── Hidden ──────────────────────────────────────────────────── */
+  .hidden { display: none !important; }
+  .area-section.hidden { display: none !important; }
+
+  @media (max-width: 600px) {
+    header, .filter-bar, .grid-wrap { padding-left: 16px; padding-right: 16px; }
+    .filter-bar { top: 72px; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div>
+      <h1>🏠 Nathan's Property Tracker</h1>
+      <p>3-bed houses · £900–£1,200/mo · Train to Birmingham · Drive to Derby</p>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot viewing"></div> Viewing requested</div>
+      <div class="legend-item"><div class="legend-dot budget"></div> In budget</div>
+      <div class="legend-item"><div class="legend-dot over"></div> Over budget</div>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <span class="filter-label">Area</span>
+    <button class="filter-btn active" data-area="all" onclick="filterArea(this)">All</button>
+    <button class="filter-btn" data-area="Tamworth" onclick="filterArea(this)">Tamworth</button>
+    <button class="filter-btn" data-area="Burton-on-Trent" onclick="filterArea(this)">Burton</button>
+    <button class="filter-btn" data-area="Swadlincote" onclick="filterArea(this)">Swadlincote</button>
+    <button class="filter-btn" data-area="Cannock" onclick="filterArea(this)">Cannock</button>
+    <button class="filter-btn" data-area="Rugeley" onclick="filterArea(this)">Rugeley</button>
+    <button class="filter-btn" data-area="Stafford" onclick="filterArea(this)">Stafford</button>
+    <button class="filter-btn" data-area="Walsall" onclick="filterArea(this)">Walsall</button>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">Status</span>
+    <button class="filter-btn active" data-status="all" onclick="filterStatus(this)">All</button>
+    <button class="filter-btn" data-status="viewing" onclick="filterStatus(this)">👀 Viewing</button>
+    <button class="filter-btn" data-status="budget" onclick="filterStatus(this)">✅ In budget</button>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="searchBox" placeholder="Search address…" oninput="filterSearch()" />
+  </div>
+  <span class="count-badge" id="countBadge">50 properties</span>
+</div>
+
+<div class="grid-wrap" id="gridWrap"></div>
+
+<script>
+const IMG_MAP = {
+  "88842801": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/513b897c1/88842801/513b897c1d0387ad11d784209af609ea_max_476x317.jpeg",
+  "88669599": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/5504d11ac/88669599/5504d11acb09fd828cafe3b0673574e8_max_476x317.jpeg",
+  "88617732": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/2ec0e813b/88617732/2ec0e813ba7cb18ad15d7830dd8ac091_max_476x317.jpeg",
+  "173165102": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/6fad1f9bd/173165102/6fad1f9bd9eb947c5323cf79a1cdcc9d_max_476x317.jpeg",
+  "88840542": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/ec002182e/88840542/ec002182e4d6fe63e1e1417d17cc3113_max_476x317.jpeg",
+  "88780269": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/e61c7fb36/88780269/e61c7fb36492858cfa381d3ad8437039_max_476x317.png",
+  "88190556": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/a5a32bbed/88190556/a5a32bbed0126ce29687cc80202f19db_max_476x317.jpeg",
+  "88479786": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/fb7e8abe7/88479786/fb7e8abe748cd2a4fdc860f5ca6ebeb9_max_476x317.jpeg",
+  "88488123": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/8e4252480/88488123/8e425248035ff820d6b396b3e43b2a69_max_476x317.jpeg",
+  "88445664": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/c9c2fe4bf/88445664/c9c2fe4bf08bccd27f268375d871d8e1_max_476x317.jpeg",
+  "87801561": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/177bf1ec8/87801561/177bf1ec8f16ed01d307cb2c4d2a1d38_max_476x317.jpeg",
+  "87801180": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/fc0e55a20/87801180/fc0e55a205556ce235668238011cf138_max_476x317.jpeg",
+  "88607736": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/ec44aa388/88607736/ec44aa388c686f91207fc23c63a87157_max_476x317.jpeg",
+  "88873482": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/893fb48f6/88873482/893fb48f64f4e7834af340fbec2ba310_max_476x317.jpeg",
+  "88836306": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/8178623e0/88836306/8178623e007f9e5580e188031d84e95c_max_476x317.jpeg",
+  "88835379": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/7918665da/88835379/7918665da126d69597c37d992dc41c1b_max_476x317.jpeg",
+  "174102176": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/5c8727a72/174102176/5c8727a728dc6c2cdb58ee5eea0dae29_max_476x317.jpeg",
+  "88779720": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/961f25455/88779720/961f25455cd5f4c71976771f3c5d855e_max_476x317.jpeg",
+  "88734432": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/0db788b46/88734432/0db788b4618c24d4db60c6ac53fd1df4_max_476x317.jpeg",
+  "88732944": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/a826252b8/88732944/a826252b87d9eadbd45ba53759628d5d_max_476x317.jpeg",
+  "88656123": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/a503e8eaa/88656123/a503e8eaaa74f9cd7218baf559f768d5_max_476x317.jpeg",
+  "88613145": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/23d1d18f0/88613145/23d1d18f0500b2d35977c9d6193dcebe_max_476x317.jpeg",
+  "94706591": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/875e52400/94706591/875e52400bcfd533cb24126f9f66eab2_max_476x317.jpg",
+  "88591521": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/d99e1b033/88591521/d99e1b033f32d34fc7c577ba10ae43e8_max_476x317.jpeg",
+  "88582209": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/1a5948a9d/88582209/1a5948a9dd3221c86ba8c012b10ebce3_max_476x317.jpeg",
+  "88575273": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/8d8ea8128/88575273/8d8ea81289c4e59d1e4aa0cfa2d629f9_max_476x317.jpeg",
+  "88563354": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/1d34dd4a8/88563354/1d34dd4a85cd033250348e354bb981af_max_476x317.jpeg",
+  "88544616": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/708e5ca48/88544616/708e5ca488378df9470e1f818ffc7005_max_476x317.jpeg",
+  "88531224": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/b34fd7d57/88531224/b34fd7d57bcdb15bd14abc01ed45ae06_max_476x317.jpeg",
+  "155247932": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/50f58c074/155247932/50f58c0749e90918499b366d4bca69fe_max_476x317.jpeg",
+  "88478760": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/124f06083/88478760/124f06083e1e940e32b8c54f137137c7_max_476x317.jpeg",
+  "88372752": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/e4d294873/88372752/e4d29487313db309ca2f8c2061c9fdfd_max_476x317.jpeg",
+  "88329696": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/f60c94d10/88329696/f60c94d1002614dadea1163a563a028a_max_476x317.jpeg",
+  "88297047": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/821e19f97/88297047/821e19f97e4a44cba56433eb779e6688_max_476x317.jpeg",
+  "88275168": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/492881926/88275168/492881926183067fe2849640e22de738_max_476x317.jpeg",
+  "88242123": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/5f3783a88/88242123/5f3783a88a2eacb637cee9ec0fd68f27_max_476x317.jpeg",
+  "88791612": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/058f6a029/88791612/058f6a029712c0319bbf8671e4e553f7_max_476x317.jpeg",
+  "88847208": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/4feb39259/88847208/4feb39259d484ebb1badc24c2c7cbc89_max_476x317.jpeg",
+  "88846647": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/31d322b5a/88846647/31d322b5ab72d651dc7aa99d5e0ee264_max_476x317.jpeg",
+  "88806027": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/2d2353657/88806027/2d235365716d600ab45aeefc9e20cde5_max_476x317.jpeg",
+  "88484505": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/42c4e5d41/88484505/42c4e5d41a547926b13b64609ac99e90_max_476x317.jpeg",
+  "88405467": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/788a4cdc1/88405467/788a4cdc1d9127cc28670036c34e416b_max_476x317.jpeg",
+  "88352613": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/93c6b2ea2/88352613/93c6b2ea24997063099d0213d806f5fc_max_476x317.jpeg",
+  "88271958": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/565030677/88271958/5650306779f07e6a4a5ecc0e5c71f157_max_476x317.jpeg",
+  "88190466": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/f8a9bcfc1/88190466/f8a9bcfc10d89faf401a82cd2e6d7ed1_max_476x317.jpeg",
+  "174129476": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/5885b3917/174129476/5885b3917cd6ef674b66089cb5ee10a2_max_476x317.jpeg",
+  "87956814": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/63bf66b84/87956814/63bf66b84857813325d25ca3aedead45_max_476x317.jpeg",
+  "88621068": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/29f4c81b7/88621068/29f4c81b7948adf3b5189a7ad58ca117_max_476x317.jpeg",
+  "87939855": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/fff7b01e2/87939855/fff7b01e2ae9764f7d4396d7b4c2f7b6_max_476x317.jpeg",
+  "87925584": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/d77b064cc/87925584/d77b064cc3d28c0143c133b7d79614d1_max_476x317.jpeg",
+  "87910968": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/c8ef3190a/87910968/c8ef3190a70e6a6ddfb434b29c225a18_max_476x317.jpeg",
+  "87789429": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/29443c9db/87789429/29443c9db976086ab28469c798d15299_max_476x317.jpeg",
+  "174985097": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/474086343/174985097/4740863431971e8146471349024a31d3_max_476x317.jpeg",
+  "170671238": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/da588dcb3/170671238/da588dcb360c9cd33ab89627170a3a81_max_476x317.jpeg",
+  "174958004": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/320623c3f/174958004/320623c3f0c5a7f4353696d8ccff8ea2_max_476x317.jpeg",
+  "88844127": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/c4ebcdcf6/88844127/c4ebcdcf678bd8ca72fe17bf76b3c258_max_476x317.jpeg",
+  "88794342": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/53ce3a32b/88794342/53ce3a32b3077a75fe4aa6d6dc0943d9_max_476x317.jpeg",
+  "88786740": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/e84826cd5/88786740/e84826cd5731676ad60744ad9b37371c_max_476x317.jpeg",
+  "88762053": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/8207c196d/88762053/8207c196dbb837812ac02983630994e8_max_476x317.jpeg",
+  "88695513": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/a3b7d26ca/88695513/a3b7d26cad55ee0503abe89a6cfdd9e0_max_476x317.jpeg",
+  "88433547": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/04bab8db9/88433547/04bab8db914e85945918c01d3767775a_max_476x317.jpeg",
+  "88403682": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/de5f381e0/88403682/de5f381e019096e6d5f1a7f03dc9cf2b_max_476x317.jpeg",
+  "88328667": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/04527f775/88328667/04527f7750aa0b369aa2925d7ffb8859_max_476x317.jpeg",
+  "87991548": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/08b505e3d/87991548/08b505e3d99bc1bfc833cbcda9e4a6b7_max_476x317.jpeg",
+  "88241970": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/2b4d7b70d/88241970/2b4d7b70deef88e0a65037ca52a012c0_max_476x317.jpeg",
+  "88114335": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/433f07f8d/88114335/433f07f8dcf7e83b0bddb383448e6d32_max_476x317.jpeg",
+  "88080129": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/04ca9303a/88080129/04ca9303a36155e764bbe7d54f99ad96_max_476x317.jpeg",
+  "87952050": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/1b24d1f54/87952050/1b24d1f544a1dce419dde022ba4a525b_max_476x317.jpeg",
+  "87922509": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/3788e1f5d/87922509/3788e1f5defdbf3ca9f6d933ac5ee9c4_max_476x317.jpeg",
+  "87812886": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/ea1db3d4f/87812886/ea1db3d4feb934e4ebe5f5e985ed0399_max_476x317.jpeg",
+  "174960878": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/bcedc7f57/174960878/bcedc7f573d4897ec31804e39e695aa6_max_476x317.jpeg",
+  "174200555": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/property-photo/7c280434d/174200555/7c280434df7db9f3e67131e1e7b7d6f4_max_476x317.jpeg"
+};
+
+const TRANSPORT = {
+  "Tamworth":        { train: "~30 min (direct, Cross-City)",                    drive: "~40 min" },
+  "Burton-on-Trent": { train: "~60–70 min (change req.)",                        drive: "~25 min" },
+  "Swadlincote":     { train: "No station — drive to Tamworth (~20 min) + train", drive: "~20 min" },
+  "Cannock":         { train: "~45–55 min (Chase Line, direct)",                  drive: "~50 min" },
+  "Rugeley":         { train: "~45–55 min (Chase/Trent Valley line)",             drive: "~50 min" },
+  "Stafford":        { train: "~35 min (direct, West Midlands Railway)",          drive: "~45 min" },
+  "Walsall":         { train: "~15–20 min (direct, WMR)",                         drive: "~50 min" },
+};
+
+const PROPERTIES = [
+  // TAMWORTH
+  { area:"Tamworth", address:"Brendon, Tamworth, B77", type:"Semi-Detached", rent:1100, beds:3, baths:1, notes:"Family home; 2 reception rooms, kitchen, garage, front and rear garden.", link:"https://www.rightmove.co.uk/properties/88842801", id:"88842801", viewing:"Yes", userNote:"" },
+  { area:"Tamworth", address:"Summerfield Road, Tamworth", type:"Terraced", rent:1200, beds:3, baths:1, notes:"Working log burner, conservatory, loft-converted third bedroom, downstairs WC.", link:"https://www.rightmove.co.uk/properties/88669599", id:"88669599", viewing:"Yes", userNote:"Im seeing this on Wednesday" },
+  { area:"Tamworth", address:"Bloomfield Way, Tamworth", type:"Terraced", rent:1150, beds:3, baths:1, notes:"Spacious lounge/diner. Well-presented. Ideal for families or couples.", link:"https://www.rightmove.co.uk/properties/88617732", id:"88617732", viewing:"Yes", userNote:"" },
+  { area:"Tamworth", address:"Beauchamp Road, Hockley, B77", type:"Semi-Detached", rent:1150, beds:3, baths:1, notes:"Popular Hockley area; bright lounge/dining area. Reduced price.", link:"https://www.rightmove.co.uk/properties/173165102", id:"173165102", viewing:"Yes", userNote:"" },
+  // BURTON-ON-TRENT
+  { area:"Burton-on-Trent", address:"Ridgeway Road, Burton-on-Trent, DE15", type:"Semi-Detached", rent:1000, beds:3, baths:1, notes:"Spacious; fitted kitchen with integrated appliances. Close to amenities and schools.", link:"https://www.rightmove.co.uk/properties/88786740", id:"88786740", viewing:"Yes", userNote:"" },
+  { area:"Burton-on-Trent", address:"Panama Road, Horninglow, Burton-upon-Trent, DE13 0SQ", type:"Semi-Detached", rent:1100, beds:3, baths:2, notes:"Sought-after Horninglow location. Superb local amenities inc. schools & leisure.", link:"https://www.rightmove.co.uk/properties/174960878", id:"174960878", viewing:"Yes", userNote:"" },
+  { area:"Burton-on-Trent", address:"Anslow Park Cottages, Main Road, Anslow, DE13 9QJ", type:"Cottage", rent:1150, beds:3, baths:1, notes:"Modernised traditional cottage in sought-after village of Anslow. Rural setting.", link:"https://www.rightmove.co.uk/properties/88433547", id:"88433547", viewing:"Yes", userNote:"" },
+  // SWADLINCOTE
+  { area:"Swadlincote", address:"Oversetts Road, Newhall, DE11", type:"House", rent:950, beds:3, baths:1, notes:"Private driveway, parking, family home. ⚠️ No local train — nearest station Tamworth (~20 min drive).", link:"https://www.rightmove.co.uk/properties/88868364", id:"88868364", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"Farm Side, Newhall, DE11", type:"Terraced", rent:900, beds:3, baths:1, notes:"Excellent condition throughout, immediate availability. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88786746", id:"88786746", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"The Burrows, Swadlincote, DE11 0RL", type:"Detached", rent:950, beds:3, baths:1, notes:"Modernised; entrance hall, lounge, dining room, fitted kitchen. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88474173", id:"88474173", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"Chapel Street, Woodville, DE11", type:"Detached", rent:1100, beds:3, baths:1, notes:"2 reception rooms, lounge/diner. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88680699", id:"88680699", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"Vale Road, Midway", type:"Semi-Detached", rent:1000, beds:3, baths:1, notes:"⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88498113", id:"88498113", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"High Street, Newhall", type:"Semi-Detached", rent:1150, beds:3, baths:1, notes:"High quality, private cul-de-sac. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88630854", id:"88630854", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"Main Street, Albert Village", type:"House", rent:900, beds:3, baths:1, notes:"Village location near Conkers/National Forest. Reduced. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88037778", id:"88037778", viewing:"", userNote:"" },
+  { area:"Swadlincote", address:"Field View, Woodville, DE11", type:"Terraced", rent:1200, beds:3, baths:2, notes:"3-storey townhouse, garage. ⚠️ No local train station.", link:"https://www.rightmove.co.uk/properties/88696146", id:"88696146", viewing:"", userNote:"" },
+  // CANNOCK
+  { area:"Cannock", address:"Benion Road, Cannock, WS11", type:"Semi-Detached", rent:875, beds:3, baths:1, notes:"Available now. Breakfast kitchen, guest WC, off-road parking. Zero Deposit.", link:"https://www.rightmove.co.uk/properties/88719546", id:"88719546", viewing:"", userNote:"" },
+  { area:"Cannock", address:"Clifton Avenue, Cannock, WS11", type:"Terraced", rent:975, beds:3, baths:1, notes:"Mid mews house with off-road parking.", link:"https://www.rightmove.co.uk/properties/88840542", id:"88840542", viewing:"", userNote:"" },
+  { area:"Cannock", address:"Cemetery Road, Cannock, Staffordshire", type:"End of Terrace", rent:1000, beds:3, baths:1, notes:"Newly refurbished; gas CH, double glazing, good local schools. Reduced.", link:"https://www.rightmove.co.uk/properties/88190556", id:"88190556", viewing:"", userNote:"" },
+  { area:"Cannock", address:"Gorsemoor Road, Heath Hayes, WS12", type:"Semi-Detached", rent:1200, beds:3, baths:2, notes:"Fully refurbished; new kitchen & bathroom. Spacious, gas CH, double glazing.", link:"https://www.rightmove.co.uk/properties/88479786", id:"88479786", viewing:"", userNote:"" },
+  { area:"Cannock", address:"Strauss Drive, Heath Hayes", type:"Town House", rent:1200, beds:3, baths:2, notes:"3-storey; conservatory, all bedrooms double, dishwasher included.", link:"https://www.rightmove.co.uk/properties/88780269", id:"88780269", viewing:"", userNote:"" },
+  // RUGELEY
+  { area:"Rugeley", address:"Byron Place, Rugeley", type:"Terraced", rent:950, beds:3, baths:1, notes:"Character home; 3 well-proportioned bedrooms.", link:"https://www.rightmove.co.uk/properties/88445664", id:"88445664", viewing:"", userNote:"" },
+  { area:"Rugeley", address:"Campbell Close, Rugeley, WS15", type:"Terraced", rent:925, beds:3, baths:1, notes:"Lounge, kitchen/dining area, garden. Listed Jan — check still available.", link:"https://www.rightmove.co.uk/properties/87801180", id:"87801180", viewing:"", userNote:"" },
+  { area:"Rugeley", address:"Springfield Avenue, Brereton, WS15", type:"Semi-Detached", rent:995, beds:3, baths:1, notes:"Private garden, driveway. Living room, kitchen, dining area.", link:"https://www.rightmove.co.uk/properties/87801561", id:"87801561", viewing:"", userNote:"" },
+  { area:"Rugeley", address:"Levett Grange, Rugeley", type:"Detached", rent:1200, beds:3, baths:1, notes:"Immaculate throughout; en-suite to master, near amenities. Zero Deposit.", link:"https://www.rightmove.co.uk/properties/88488123", id:"88488123", viewing:"", userNote:"" },
+  // STAFFORD
+  { area:"Stafford", address:"Oxford Gardens, ST16", type:"End of Terrace", rent:1200, beds:3, baths:2, notes:"Refurbished throughout; garage, off-road parking.", link:"https://www.rightmove.co.uk/properties/88791612", id:"88791612", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Sylvan Way, Wildwood, Stafford", type:"House", rent:995, beds:3, baths:1, notes:"Desirable Wildwood area. Good schools catchment.", link:"https://www.rightmove.co.uk/properties/88806027", id:"88806027", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Hurstmead Drive, Stafford", type:"Semi-Detached", rent:1200, beds:3, baths:1, notes:"Wildwood Estate; near local amenities.", link:"https://www.rightmove.co.uk/properties/88484505", id:"88484505", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Merrivale Road, ST17", type:"Terraced", rent:1000, beds:3, baths:1, notes:"Available immediately; off-road parking.", link:"https://www.rightmove.co.uk/properties/88352613", id:"88352613", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Inglemere Drive, ST17", type:"Semi-Detached", rent:1150, beds:3, baths:1, notes:"Wildwood catchment area.", link:"https://www.rightmove.co.uk/properties/87925584", id:"87925584", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Jerningham Street, ST16", type:"Terraced", rent:1000, beds:3, baths:1, notes:"Walking distance to train station; fully renovated.", link:"https://www.rightmove.co.uk/properties/174129476", id:"174129476", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Barnes Road, Stafford", type:"Semi-Detached", rent:975, beds:3, baths:1, notes:"Garage, parking, gardens.", link:"https://www.rightmove.co.uk/properties/87956814", id:"87956814", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Deepdales, Wildwood", type:"Semi-Detached", rent:1100, beds:3, baths:1, notes:"Garage; Walton High catchment area.", link:"https://www.rightmove.co.uk/properties/170671238", id:"170671238", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Farmdown Road, ST17", type:"Semi-Detached", rent:1200, beds:3, baths:1, notes:"Lounge, kitchen diner, snug, garage.", link:"https://www.rightmove.co.uk/properties/87789429", id:"87789429", viewing:"Yes", userNote:"Viewing Friday 29 May at 10am" },
+  { area:"Stafford", address:"Glenthorne Close, Wildwood", type:"Semi-Detached", rent:1195, beds:3, baths:1, notes:"Cul-de-sac; high standard finish; open plan kitchen.", link:"https://www.rightmove.co.uk/properties/174985097", id:"174985097", viewing:"", userNote:"" },
+  { area:"Stafford", address:"Bedford Avenue, ST16", type:"Terraced", rent:1175, beds:3, baths:2, notes:"Family-friendly; bright living area.", link:"https://www.rightmove.co.uk/properties/87939855", id:"87939855", viewing:"", userNote:"" },
+  // WALSALL
+  { area:"Walsall", address:"Cecil Street, Walsall, WS4 2AZ", type:"Terraced", rent:1050, beds:3, baths:1, notes:"Nestled in heart of Walsall; well-presented throughout.", link:"https://www.rightmove.co.uk/properties/88607736", id:"88607736", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Alderley Crescent, Walsall", type:"Terraced", rent:1095, beds:3, baths:1, notes:"Complete, ready to move in.", link:"https://www.rightmove.co.uk/properties/88836306", id:"88836306", viewing:"", userNote:"" },
+  { area:"Walsall", address:"West Bromwich Road, Walsall, WS1", type:"House", rent:1050, beds:3, baths:1, notes:"Zero Deposit Guarantee available.", link:"https://www.rightmove.co.uk/properties/88732944", id:"88732944", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Chestnut Street, Walsall", type:"House", rent:1150, beds:3, baths:2, notes:"Spacious family home; income req. 30x monthly rent.", link:"https://www.rightmove.co.uk/properties/88613145", id:"88613145", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Florence Street, Walsall, WS1", type:"Terraced", rent:975, beds:3, baths:1, notes:"Three-bedroom terrace; available soon.", link:"https://www.rightmove.co.uk/properties/94706591", id:"94706591", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Neath Road, Mossley, Bloxwich, WS3", type:"Terraced", rent:995, beds:3, baths:1, notes:"Traditional 3-bed mid-terraced; well maintained.", link:"https://www.rightmove.co.uk/properties/88591521", id:"88591521", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Bagnall Street, Walsall, WS3", type:"End of Terrace", rent:995, beds:3, baths:1, notes:"End terrace; garden.", link:"https://www.rightmove.co.uk/properties/88582209", id:"88582209", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Glastonbury Crescent, Bloxwich, WS3", type:"Terraced", rent:995, beds:3, baths:1, notes:"Traditional three-bedroom terraced house.", link:"https://www.rightmove.co.uk/properties/88575273", id:"88575273", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Sandhill Street, Bloxwich, WS3", type:"Semi-Detached", rent:950, beds:3, baths:1, notes:"Three bedroom family home; enquire promptly.", link:"https://www.rightmove.co.uk/properties/88563354", id:"88563354", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Brockhurst Crescent, Walsall, WS5", type:"Terraced", rent:1150, beds:3, baths:1, notes:"Three-bedroom terraced; spacious.", link:"https://www.rightmove.co.uk/properties/88544616", id:"88544616", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Gower Street, Walsall", type:"Terraced", rent:1050, beds:3, baths:1, notes:"Recently renovated throughout.", link:"https://www.rightmove.co.uk/properties/88531224", id:"88531224", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Little Island Drive, Walsall, WV13", type:"Town House", rent:1175, beds:3, baths:2, notes:"Modern townhouse; two bathrooms.", link:"https://www.rightmove.co.uk/properties/155247932", id:"155247932", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Spring Close, Walsall, WS4", type:"House", rent:1100, beds:3, baths:1, notes:"Zero Deposit Guarantee available.", link:"https://www.rightmove.co.uk/properties/88372752", id:"88372752", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Station Road, Rushall, WS4", type:"Semi-Detached", rent:1200, beds:3, baths:1, notes:"Recently refurbished; reduced price.", link:"https://www.rightmove.co.uk/properties/88297047", id:"88297047", viewing:"", userNote:"" },
+  { area:"Walsall", address:"Old Birchills, Walsall, WS2", type:"House", rent:1100, beds:3, baths:2, notes:"Zero Deposit Guarantee; available immediately. Two bathrooms.", link:"https://www.rightmove.co.uk/properties/88242123", id:"88242123", viewing:"", userNote:"" },
+];
+
+const AREAS = [...new Set(PROPERTIES.map(p => p.area))];
+let activeArea   = 'all';
+let activeStatus = 'all';
+let searchText   = '';
+
+function filterArea(btn) {
+  document.querySelectorAll('[data-area]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeArea = btn.dataset.area;
+  render();
+}
+function filterStatus(btn) {
+  document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeStatus = btn.dataset.status;
+  render();
+}
+function filterSearch() {
+  searchText = document.getElementById('searchBox').value.toLowerCase();
+  render();
+}
+
+function matches(p) {
+  if (activeArea !== 'all' && p.area !== activeArea) return false;
+  if (activeStatus === 'viewing' && p.viewing !== 'Yes') return false;
+  if (activeStatus === 'budget' && !(p.rent >= 900 && p.rent <= 1200)) return false;
+  if (searchText && !p.address.toLowerCase().includes(searchText) && !p.area.toLowerCase().includes(searchText)) return false;
+  return true;
+}
+
+function buildCard(p) {
+  const inBudget = p.rent >= 900 && p.rent <= 1200;
+  const isViewing = p.viewing === 'Yes';
+  const t = TRANSPORT[p.area];
+  const imgUrl = IMG_MAP[p.id];
+
+  let cardClass = 'card';
+  if (isViewing) cardClass += ' viewing';
+  else if (inBudget) cardClass += ' in-budget';
+  else cardClass += ' over-budget';
+
+  let ribbonClass = isViewing ? 'ribbon-viewing' : (inBudget ? 'ribbon-budget' : 'ribbon-over');
+  let ribbonText  = isViewing ? '👀 Viewing' : (inBudget ? '✅ In budget' : '⚠️ Over budget');
+
+  const imgHtml = imgUrl
+    ? `<img src="${imgUrl}" alt="${p.address}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-img\\'><div class=\\'icon\\'>🏠</div><span>No photo available</span></div>'">`
+    : `<div class="no-img"><div class="icon">🏠</div><span>No photo available</span></div>`;
+
+  const viewingNoteHtml = isViewing && p.userNote
+    ? `<div class="card-notes viewing-note">📌 ${p.userNote}</div>`
+    : '';
+
+  const linkClass = isViewing ? 'card-link viewing-link' : 'card-link';
+  const linkText  = isViewing ? '🏠 View on Rightmove (viewing scheduled)' : '🔗 View on Rightmove';
+
+  return `
+    <div class="${cardClass}">
+      <div class="card-img-wrap">
+        ${imgHtml}
+        <span class="status-ribbon ${ribbonClass}">${ribbonText}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-address">${p.address}</div>
+        <span class="card-type">${p.type}</span>
+        <div class="card-rent">£${p.rent.toLocaleString()}<span>/mo</span></div>
+        <div class="card-meta">
+          <span class="meta-chip"><span class="icon">🛏</span> ${p.beds} bed</span>
+          <span class="meta-chip"><span class="icon">🚿</span> ${p.baths} bath</span>
+        </div>
+        <div class="card-transport">
+          <div class="transport-row"><span class="t-icon">🚆</span><span class="t-label">Brum</span>${t.train}</div>
+          <div class="transport-row"><span class="t-icon">🚗</span><span class="t-label">Derby</span>${t.drive}</div>
+        </div>
+        <div class="card-notes">${p.notes}</div>
+        ${viewingNoteHtml}
+      </div>
+      <div class="card-footer">
+        <a href="${p.link}" target="_blank" class="${linkClass}">${linkText}</a>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const wrap = document.getElementById('gridWrap');
+  let totalShown = 0;
+  let html = '';
+
+  for (const area of AREAS) {
+    const props = PROPERTIES.filter(p => p.area === area && matches(p));
+    if (props.length === 0) continue;
+    totalShown += props.length;
+    html += `
+      <div class="area-section">
+        <div class="area-heading">
+          📍 ${area}
+          <span class="area-count">${props.length} listing${props.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="cards">
+          ${props.map(buildCard).join('')}
+        </div>
+      </div>`;
+  }
+
+  if (totalShown === 0) {
+    html = `<div class="empty-state"><div class="e-icon">🔍</div><p>No properties match your filters.</p></div>`;
+  }
+
+  wrap.innerHTML = html;
+  document.getElementById('countBadge').textContent = `${totalShown} ${totalShown === 1 ? 'property' : 'properties'}`;
+}
+
+render();
+</script>
+</body>
+</html>
